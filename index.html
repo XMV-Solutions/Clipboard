@@ -1,0 +1,316 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Clipboard</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <link href="./static/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" media="screen">	
+        <script src="./socket.io/socket.io.js"></script>
+        <script src="./static/ckeditor/ckeditor.js"></script>
+        <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+        <link rel="stylesheet" href="./static/dropzone/dist/dropzone.css">
+        <script type="text/javascript" src="./static/dropzone/dist/dropzone.js"></script>
+        <script>Dropzone.autoDiscover = false;</script>
+        <link rel="stylesheet" href="./static/jquery-toast-plugin/dist/jquery.toast.min.css">
+        <script type="text/javascript" src="./static/jquery-toast-plugin/dist/jquery.toast.min.js"></script>
+		
+		<link rel="apple-touch-icon" sizes="152x152" href="./static/icons/apple-touch-icon.png">
+		<link rel="icon" type="image/png" href="./static/icons/favicon-32x32.png" sizes="32x32">
+		<link rel="icon" type="image/png" href="./static/icons/favicon-16x16.png" sizes="16x16">
+		<link rel="manifest" href="./static/icons/manifest.json">
+		<link rel="shortcut icon" href="./static/icons/favicon.ico">
+		<meta name="apple-mobile-web-app-title" content="Clipboard">
+		<meta name="application-name" content="Clipboard">
+		<meta name="msapplication-config" content="./static/icons/browserconfig.xml">
+		<meta name="theme-color" content="#ffffff">
+		
+        <link rel="stylesheet" href="./static/font-awesome/css/font-awesome.min.css">
+        <style>
+            /** Eric Meyer's Reset CSS v2.0 (http://meyerweb.com/eric/tools/css/reset/) http://cssreset.com */
+            html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, big, cite, code, del, dfn, em, img, ins, kbd, q, s, samp, small, strike, strong, sub, sup, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, article, aside, canvas, details, embed, figure, figcaption, footer, header, hgroup, menu, nav, output, ruby, section, summary, time, mark, audio, video { margin: 0; padding: 0; border: 0; font-size: 100%; font: inherit; vertical-align: baseline; }
+
+            /* HTML5 display-role reset for older browsers */
+            article, aside, details, figcaption, figure, footer, header, hgroup, menu, nav, section { display: block; }
+
+
+
+            body { line-height: 1; }	
+            #fileInfos { list-style-type: none; margin: 0; padding: 0; }
+            #fileInfos li { padding: 5px 10px; }
+            #fileInfos li:nth-child(odd) { background: #eee; }
+            .dropzone { 
+                border: 2px dashed #0087F7;
+                border-radius: 5px; 
+                background: white; 
+                padding: 10px;
+                margin: 10px;
+                min-height: 25px!important;
+            }
+            .dropzone .dz-message { 
+                font-weight: bold; 
+                font-family: Roboto, "Open Sans", sans-serif;
+                font-size: 15px;
+                margin: 10px;
+            }
+
+            div.row > div { padding: 0 0 0 0; margin: 0; }
+
+            div#connectionCount {
+                border: 2px solid darkgrey;
+                min-width: 30px;
+                padding: 10px;
+                border-radius: 10px; 
+                background: white;                
+                bottom: 0px;
+                right: 0px;
+                position: fixed;
+                z-index: 99;
+            }
+
+            .filler {
+                border: 2px solid transparent;
+                background: transparent;  
+                padding: 14px;
+            }
+        </style>	
+    </head>
+    <body>
+        <div id="connectionCount">
+            <span>1</span> user(s)
+        </div>
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-sm-9">	
+                    <form id="form">
+                        <textarea id="ckedit" name="ckedit" style="width:100%;"></textarea><br>
+                    </form>
+                </div>	
+                <div class="col-sm-3">	
+                    <form id="myDropzone" method="post" action="./upload" class="dropzone">
+                        <input name="uploadNameSpace" type="hidden" id="uploadNameSpace" value="test" />
+                        <div class="dz-message">Drop files here or click to upload.</div>
+                    </form>
+                </div>	
+                <div class="col-sm-3">					
+                    <form id="send_snuggy" class="form-inline">
+						<a class="btn" target="_blank" href="https://snag.gy">https://snag.gy</a>
+						<div class="form-group">
+							<input class="form-control" type="url" id="snaggy-url-input" name="snaggy" placeholder="Paste snaggy URL">
+						</div>						
+						<button  class="btn btn-primary">send</button>
+                    </form>
+                </div>					
+            </div>
+        </div>
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-sm-12">	
+                    <ul id="fileInfos"> 
+
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="filler">
+            &nbsp;
+        </div>
+        <script>
+            var nameSpace = "/" + location.pathname.split("/").pop();
+
+            var icons = {
+                image: 'fa-file-image-o',
+                pdf: 'fa-file-pdf-o',
+                word: 'fa-file-word-o',
+                powerpoint: 'fa-file-powerpoint-o',
+                excel: 'fa-file-excel-o',
+                audio: 'fa-file-audio-o',
+                video: 'fa-file-video-o',
+                zip: 'fa-file-zip-o',
+                code: 'fa-file-code-o',
+                file: 'fa-file-o'
+            };
+
+            var extensions = {
+                gif: icons.image,
+                jpeg: icons.image,
+                tif: icons.image,
+                tiff: icons.image,
+                jpg: icons.image,
+                png: icons.image,
+                pdf: icons.pdf,
+                doc: icons.word,
+                docx: icons.word,
+                ppt: icons.powerpoint,
+                pptx: icons.powerpoint,
+                xls: icons.excel,
+                xlsx: icons.excel,
+                aac: icons.audio,
+                mp3: icons.audio,
+                ogg: icons.audio,
+                avi: icons.video,
+                flv: icons.video,
+                mkv: icons.video,
+                mp4: icons.video,
+                gz: icons.zip,
+                zip: icons.zip,
+                css: icons.code,
+                html: icons.code,
+                js: icons.code,
+                file: icons.file
+            };
+
+            CKEDITOR.replace('ckedit', {
+                extraPlugins: 'uicolor,preview',
+                height: '300px',
+                toolbar: [
+                    {name: 'document', groups: ['mode', 'document', 'doctools'], items: ['Source', '-', 'Save', 'NewPage', 'Preview', 'Print', '-', 'Templates']},
+//						{ name: 'clipboard', groups: [ 'clipboard', 'undo' ], items: [ 'Cut', 'Copy', 'Paste', 'PasteText', 'PasteFromWord', '-', 'Undo', 'Redo' ] },
+//						{ name: 'editing', groups: [ 'find', 'selection', 'spellchecker' ], items: [ 'Find', 'Replace', '-', 'SelectAll', '-', 'Scayt' ] },
+//						{ name: 'forms', items: [ 'Form', 'Checkbox', 'Radio', 'TextField', 'Textarea', 'Select', 'Button', 'ImageButton', 'HiddenField' ] },
+                    {name: 'basicstyles', groups: ['basicstyles', 'cleanup'], items: ['Bold', 'Italic', 'Underline', 'Strike', 'Subscript', 'Superscript', '-', 'RemoveFormat']},
+//						{ name: 'paragraph', groups: [ 'list', 'indent', 'blocks', 'align', 'bidi' ], items: [ 'NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'Blockquote', 'CreateDiv', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BidiLtr', 'BidiRtl', 'Language' ] },
+                    {name: 'links', items: ['Link', 'Unlink', 'Anchor']},
+                    {name: 'insert', items: ['Image', 'Flash', 'Table', 'HorizontalRule', 'Smiley', 'SpecialChar', 'PageBreak', 'Iframe']},
+//						{ name: 'styles', items: [ 'Styles', 'Format', 'Font', 'FontSize' ] },
+//						{ name: 'colors', items: [ 'TextColor', 'BGColor' ] },
+                    {name: 'tools', items: ['Maximize', 'ShowBlocks']},
+//						{ name: 'others', items: [ '-' ] },
+//						{ name: 'about', items: [ 'About' ] }
+                ]
+            });
+
+
+            CKEDITOR.on('instanceReady',
+                    function (evt) {
+                        setsize();
+                    });
+
+            var editor = CKEDITOR.instances["ckedit"];
+            var editorFocusManager = new CKEDITOR.focusManager(editor);
+
+            var nsp_socket = io(nameSpace);
+            $('#form').submit(function () {
+                nsp_socket.emit('chat message', editor.getData());
+                return false;
+            });
+
+            // Chat Message
+            nsp_socket.on('chat message', function (msg) {
+                if (!editorFocusManager.hasFocus) {
+                    if (editor.getData() !== msg) {
+                        editor.setData(msg);
+                    }
+                }
+            });
+
+            // All Files are deleted server side
+            nsp_socket.on('all Files are deleted', function (maxUploadFolderSize) {
+                myDropzone.removeAllFiles();
+                $('#fileInfos').children().each(function (a, b, c) {
+                    this.remove();
+                });
+                $.toast({
+                    text: "The size of stored files on server exceeded the limit" + (maxUploadFolderSize ? " of " + maxUploadFolderSize : "") + ". The folder has been cleaned up. Try to upload files again, now.",
+                    showHideTransition: 'slide',
+                    hideAfter: 6000,
+                    stack: 1,
+                    textAlign: 'left',
+                    position: 'bottom-left'
+                });
+            });
+
+            // uploaded file is too big 
+            nsp_socket.on('fileTooBig', function (fileInfos) {
+                $('#file_' + fileInfos.file.filename).remove();
+                $.toast({
+                    text: "The size of the uploaded file \"" + fileInfos.file.originalname + "\" exceeded the limit" + (fileInfos.maxFileSize ? " of " + fileInfos.maxFileSize : "") + ".",
+                    showHideTransition: 'slide',
+                    hideAfter: 6000,
+                    stack: 1,
+                    textAlign: 'left',
+                    position: 'bottom-left'
+                });
+            });
+
+            // User Counter
+            nsp_socket.on('connectionCount', function (msg) {
+                $('#connectionCount > span').html(msg.connections);
+            });
+
+            nsp_socket.on('newFile', function (fileInfos) {
+                var query = $.param([
+                    {name: "nameSpace", value: nameSpace},
+                    {name: "orig", value: fileInfos.originalname}
+                ]);
+                var extension = extensions[fileInfos.originalname.split('.').pop().toLocaleLowerCase()];
+                var icon = "<i class=\"fa fa-lg " + (extension ? extension : "fa-file") + "\" aria-hidden=\"true\"> </i> ";
+
+                $('#fileInfos').append(
+                        "<li class=\"files\" id=\"file_" + fileInfos.filename + "\">"
+                        + "<a target=\"_blank\" href=\"./uploads/"
+                        + fileInfos.filename + '?' + query
+                        + "\">" + icon + fileInfos.originalname + "</a></li>");
+            });
+
+            nsp_socket.on('delFile', function (delFile) {
+                $('#file_' + delFile.toString()).remove();
+            });
+
+            var lastMsg = null;
+            setInterval(
+                    function () {
+                        var newMsg = editor.getData();
+                        if (editorFocusManager.hasFocus && newMsg != lastMsg) {
+                            nsp_socket.emit('chat message', editor.getData());
+                            lastMsg = newMsg;
+                        }
+                    }, 500);
+
+            var myDropzone = new Dropzone("#myDropzone");
+            myDropzone.on("queuecomplete", function (file) {
+                myDropzone.removeAllFiles();
+            });
+
+            function setsize() {
+                var sm = window.innerWidth < 768;
+                var h;
+                if (!sm) {
+                    h = window.innerHeight * 0.2 < 100 ?
+                            window.innerHeight - 100 : window.innerHeight * 0.8;
+                } else {
+                    h = window.innerHeight - 200;
+                }
+
+                try {
+                    editor.resize('100%', h);
+                } catch (ignore) {
+                    setTimeout(setsize, 500);
+                }
+
+                if (sm) {
+                    $('#myDropzone').height(56);
+                    $('#myDropzone').css("padding", 0);
+                    $('#myDropzone').css("margin", 0);
+                } else {
+                    $('#myDropzone').height(h - 150);
+                    $('#myDropzone').css("padding", "10px");
+                    $('#myDropzone').css("margin", "10px");
+                }
+
+            }
+
+            $(window).resize(setsize);
+            $(setsize);
+            $('#uploadNameSpace').val(nameSpace);
+			
+			$("#send_snuggy").submit(function(e){
+				var snaggyUrl = $("#snaggy-url-input").val();
+				$("#snaggy-url-input").val("");
+				nsp_socket.emit('snaggy-url', snaggyUrl);					
+				e.preventDefault();
+			});
+			
+        </script>
+        <script src="./static/bootstrap/dist/js/bootstrap.min.js"></script>
+    </body>
+</html>

@@ -1,0 +1,4 @@
+#!/bin/bash
+OLDPID=`ps ax | grep clipboard.js | grep node | grep -Eo "^[0-9]*"`
+kill -9 $OLDPID
+cd /var/www/socket.io-apps/clip/; node clipboard.js --port 3000 --maxFilesSize 250M --maxUploadsFolderSize 500M 2>&1 >> /var/log/clipboard &
