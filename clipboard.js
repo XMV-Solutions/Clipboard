@@ -137,8 +137,10 @@ app.get(/^((?!(?:[\/]+uploads?)|(?:[\/]+static)|(?:[\/]+favicon.ico)).*)$/, func
             socket.on('snaggy-url', function (msg) {
 				var size = 100;
 				var filename = msg.split('/').pop();
-				var target = msg.replace("snag.gy", "i.snag.gy");
+				var source = msg.replace("snag.gy", "i.snag.gy");
 				var dest = "uploads/" + filename;
+
+				request(source).pipe(fs.createWriteStream(dest));
 				
 				var fileInfos = {
 					"originalname" : filename,
@@ -146,7 +148,7 @@ app.get(/^((?!(?:[\/]+uploads?)|(?:[\/]+static)|(?:[\/]+favicon.ico)).*)$/, func
 					"filename" : filename,
 					"pathname" : dest
 				};
-				console.log(fileInfos);
+
 				io.of(nsp).emit('newFile', fileInfos);
             });
 			
