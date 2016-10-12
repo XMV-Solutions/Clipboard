@@ -13,7 +13,7 @@
         <script>Dropzone.autoDiscover = false;</script>
         <link rel="stylesheet" href="./static/jquery-toast-plugin/dist/jquery.toast.min.css">
         <script type="text/javascript" src="./static/jquery-toast-plugin/dist/jquery.toast.min.js"></script>
-		
+        <script type="text/javascript" src="./static/pasteImage/pasteImage.js"></script>				
 		<link rel="apple-touch-icon" sizes="152x152" href="./static/icons/apple-touch-icon.png">
 		<link rel="icon" type="image/png" href="./static/icons/favicon-32x32.png" sizes="32x32">
 		<link rel="icon" type="image/png" href="./static/icons/favicon-16x16.png" sizes="16x16">
@@ -90,16 +90,7 @@
                         <input name="uploadNameSpace" type="hidden" id="uploadNameSpace" value="test" />
                         <div class="dz-message">Drop files here or click to upload.</div>
                     </form>
-                </div>	
-                <div class="col-sm-3">					
-                    <form id="send_snuggy" class="form-inline">
-						<a class="btn" target="_blank" href="https://snag.gy">https://snag.gy</a>
-						<div class="form-group">
-							<input class="form-control" type="url" id="snaggy-url-input" name="snaggy" placeholder="Paste snaggy URL">
-						</div>						
-						<button  class="btn btn-primary">send</button>
-                    </form>
-                </div>					
+                </div>				
             </div>
         </div>
         <div class="container-fluid">
@@ -183,8 +174,12 @@
             CKEDITOR.on('instanceReady',
                     function (evt) {
                         setsize();
+						$("html",$("iframe").contents()).pasteImageReader(function(results) {
+							nsp_socket.emit('pasteImage', results.dataURL);					
+						});
+						
                     });
-
+					
             var editor = CKEDITOR.instances["ckedit"];
             var editorFocusManager = new CKEDITOR.focusManager(editor);
 
@@ -202,6 +197,8 @@
                     }
                 }
             });
+			
+			
 
             // All Files are deleted server side
             nsp_socket.on('all Files are deleted', function (maxUploadFolderSize) {
@@ -292,7 +289,7 @@
                     $('#myDropzone').css("padding", 0);
                     $('#myDropzone').css("margin", 0);
                 } else {
-                    $('#myDropzone').height(h - 150);
+                    $('#myDropzone').height(h - 44);
                     $('#myDropzone').css("padding", "10px");
                     $('#myDropzone').css("margin", "10px");
                 }
@@ -303,11 +300,8 @@
             $(setsize);
             $('#uploadNameSpace').val(nameSpace);
 			
-			$("#send_snuggy").submit(function(e){
-				var snaggyUrl = $("#snaggy-url-input").val();
-				$("#snaggy-url-input").val("");
-				nsp_socket.emit('snaggy-url', snaggyUrl);					
-				e.preventDefault();
+			$("html").pasteImageReader(function(results) {
+				nsp_socket.emit('pasteImage', results.dataURL);					
 			});
 			
         </script>

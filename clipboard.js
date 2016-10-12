@@ -3,6 +3,7 @@ var app = express();
 var multer = require('multer');
 var http = require('http').Server(app);
 var https = require('https');
+var uuid = require('node-uuid');
 var io = require('socket.io')(http);
 var fs = require('fs');
 var getFolderSize = require('get-folder-size');
@@ -14,16 +15,21 @@ var maxFileSizeString = "500M";
 var maxUploadsFolderSizeString = "1G";
 var dest = 'uploads/';
 
-// Download FS
-var downloadHttps = function(url, dest, cb) {
-  var file = fs.createWriteStream(dest);
-  var request = https.get(url, function(response) {
-    response.pipe(file);
-    file.on('finish', function() {
-      file.close(cb);
-    });
-  });
-}  
+// Base64 Image to Baytes
+function decodeBase64Image(dataString) 
+{
+	var matches = dataString.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+	var response = {};
+
+	if (matches.length !== 3) {
+		return new Error('Invalid input string');
+	}
+
+	response.type = matches[1];
+	response.data = new Buffer(matches[2], 'base64');
+
+	return response;
+}
 
 // filesize human readable to int
 function getIntFileSize(hrFileSize) {
@@ -133,25 +139,34 @@ app.get(/^((?!(?:[\/]+uploads?)|(?:[\/]+static)|(?:[\/]+favicon.ico)).*)$/, func
                 io.of(nsp).emit('chat message', msg);
             });
 			
-            // Build snaggy
-            socket.on('snaggy-url', function (msg) {
-				var size = 100;
-				var filename = msg.split('/').pop();
-				var source = msg.replace("snag.gy", "i.snag.gy");
-				var dest = "uploads/" + filename;
+            // Build pasteImage
+            socket.on('pasteImage', function (base64Image) {
 
-				request(source).pipe(fs.createWriteStream(dest));
+				var imageBuffer = decodeBase64Image(base64Image);
 				
-				var fileInfos = {
-					"originalname" : filename,
-					"mimetype" : "image/jpeg",
-					"filename" : filename,
-					"pathname" : dest
-				};
-
-				io.of(nsp).emit('newFile', fileInfos);
+				var extension = imageBuffer.type.split("/").pop();
+				
+				var uniq = uuid.v4();
+				var filename = "image-" + uniq + "." + extension;
+				var dest = "uploads/" + uniq;
+				
+				try	{
+					require('fs').writeFile(dest, imageBuffer.data, function(){
+						var fileInfos = {
+							"originalname" : filename,
+							"mimetype" : imageBuffer.type,
+							"filename" : uniq,
+							"pathname" : dest
+						};
+						console.log(fileInfos);
+						io.of(nsp).emit('newFile', fileInfos);						
+					})  
+				} catch(error) {
+					console.log('ERROR: ', error);
+				}				
+				
             });
-			
+
             
             // Send counter info on disconnet
             socket.on('disconnect', function () {
